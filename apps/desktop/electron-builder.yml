@@ -1,0 +1,14 @@
+appId: com.codeex.deposito
+productName: CODEEX Depósito
+directories:
+  output: dist
+  buildResources: resources
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: resources/icon.ico
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

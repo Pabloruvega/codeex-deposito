@@ -1,0 +1,27 @@
+# Dependencias
+node_modules/
+.pnpm-store/
+
+# Base de datos
+*.db
+*.db-journal
+
+# Variables de entorno
+.env
+.env.local
+.env.production
+
+# Builds
+dist/
+.next/
+out/
+
+# Storage
+apps/backend/storage/
+
+# Logs
+*.log
+
+# Windows
+Thumbs.db
+desktop.ini

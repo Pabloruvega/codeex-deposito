@@ -1,0 +1,249 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+
+// ─── OBRAS ───────────────────────────────────────────────
+
+model Obra {
+  id          String   @id @default(uuid())
+  nombre      String
+  activa      Boolean  @default(true)
+  creadoEn    DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  proveedores ObraProveedor[]
+  pedidos     Pedido[]
+  remitos     RemitoSalida[]
+  recepciones Recepcion[]
+  faltantes   FaltanteObra[]
+}
+
+model ObraProveedor {
+  id                   String   @id @default(uuid())
+  obraId               String
+  proveedor            String
+  spreadsheetIdStock   String
+  spreadsheetIdControl String
+  activo               Boolean  @default(true)
+  creadoEn             DateTime @default(now())
+  actualizadoEn        DateTime @updatedAt
+
+  obra Obra @relation(fields: [obraId], references: [id])
+
+  @@unique([obraId, proveedor])
+}
+
+// ─── MATERIALES ──────────────────────────────────────────
+
+model Material {
+  id               String   @id @default(uuid())
+  codigoProveedor  String?
+  nombreOficial    String
+  categoria        String
+  unidadStock      String
+  unidadPedido     String
+  longitudEstandar Float?
+  activo           Boolean  @default(true)
+  creadoEn         DateTime @default(now())
+  actualizadoEn    DateTime @updatedAt
+
+  alias           Alias[]
+  itemsPedido     ItemPedido[]
+  itemsRemito     ItemRemito[]
+  itemsRecepcion  ItemRecepcion[]
+  faltantesObra   FaltanteObra[]
+}
+
+model Alias {
+  id         String   @id @default(uuid())
+  texto      String   @unique
+  materialId String
+  creadoPor  String
+  creadoEn   DateTime @default(now())
+
+  material Material @relation(fields: [materialId], references: [id])
+}
+
+// ─── PEDIDOS ─────────────────────────────────────────────
+
+model Pedido {
+  id              String   @id @default(uuid())
+  obraId          String
+  solicitante     String
+  fechaPedido     DateTime
+  fechaCarga      DateTime @default(now())
+  archivoOriginal String
+  estado          String   @default("PENDIENTE_REVISION")
+  creadoEn        DateTime @default(now())
+  actualizadoEn   DateTime @updatedAt
+
+  obra   Obra         @relation(fields: [obraId], references: [id])
+  items  ItemPedido[]
+  remito RemitoSalida?
+}
+
+model ItemPedido {
+  id                  String    @id @default(uuid())
+  pedidoId            String
+  numeroItem          Int
+  textoOriginal       String
+  cantidadOriginal    String
+  cantidadNormalizada Float
+  unidadPedido        String
+  materialId          String?
+  estadoResolucion    String    @default("SIN_MATCH")
+  scoreResolucion     Float?
+  observaciones       String?
+  confirmadoPor       String?
+  confirmadoEn        DateTime?
+
+  pedido   Pedido    @relation(fields: [pedidoId], references: [id])
+  material Material? @relation(fields: [materialId], references: [id])
+  itemRemito ItemRemito?
+}
+
+// ─── REMITOS SALIDA ──────────────────────────────────────
+
+model RemitoSalida {
+  id                  String    @id @default(uuid())
+  pedidoId            String    @unique
+  obraId              String
+  numeroRemito        Int       @unique
+  solicitante         String
+  encargadoDeposito   String
+  encargadoTraslado   String
+  fechaPedidoObra     DateTime
+  fechaRetiroDeposito DateTime
+  archivoExcel        String
+  estadoStock         String    @default("PENDIENTE")
+  intentosDescuento   Int       @default(0)
+  ultimoIntentoEn     DateTime?
+  creadoEn            DateTime  @default(now())
+
+  pedido        Pedido         @relation(fields: [pedidoId], references: [id])
+  obra          Obra           @relation(fields: [obraId], references: [id])
+  items         ItemRemito[]
+  faltantesObra FaltanteObra[]
+}
+
+model ItemRemito {
+  id               String  @id @default(uuid())
+  remitoId         String
+  itemPedidoId     String  @unique
+  materialId       String
+  descripcion      String
+  cantidadPedida   Float
+  unidad           String
+  cantidadEnStock  Float
+  cantidadFaltante Float   @default(0)
+  condicionEntrega String?
+  observaciones    String?
+
+  remito     RemitoSalida @relation(fields: [remitoId], references: [id])
+  itemPedido ItemPedido   @relation(fields: [itemPedidoId], references: [id])
+  material   Material     @relation(fields: [materialId], references: [id])
+}
+
+// ─── REMITOS ENTRADA ─────────────────────────────────────
+
+model RemitoEntrada {
+  id                  String   @id @default(uuid())
+  obraId              String
+  proveedor           String
+  numeroRemito        String
+  fechaRemito         DateTime
+  fechaCarga          DateTime @default(now())
+  asociadoARecepcion  Boolean  @default(false)
+
+  items      ItemRemitoEntrada[]
+
+  @@unique([obraId, proveedor, numeroRemito])
+}
+
+model ItemRemitoEntrada {
+  id                   String  @id @default(uuid())
+  remitoEntradaId      String
+  codigoProveedor      String
+  descripcionProveedor String
+  cantidad             Float
+  unidad               String?
+  materialId           String?
+
+  remitoEntrada RemitoEntrada @relation(fields: [remitoEntradaId], references: [id])
+}
+
+// ─── RECEPCIONES ─────────────────────────────────────────
+
+model Recepcion {
+  id             String   @id @default(uuid())
+  obraId         String
+  proveedor      String
+  numeroRemito   String
+  numeroFactura  String
+  fechaRemito    DateTime
+  fechaRecepcion DateTime @default(now())
+  estado         String   @default("COMPLETA")
+
+  obra      Obra            @relation(fields: [obraId], references: [id])
+  items     ItemRecepcion[]
+  faltantes FaltanteProveedor[]
+}
+
+model ItemRecepcion {
+  id                   String  @id @default(uuid())
+  recepcionId          String
+  materialId           String
+  descripcionProveedor String
+  codigoProveedor      String
+  cantidadFacturada    Float
+  cantidadRecibida     Float
+  diferencia           Float
+  tieneFaltante        Boolean @default(false)
+
+  recepcion Recepcion @relation(fields: [recepcionId], references: [id])
+  material  Material  @relation(fields: [materialId], references: [id])
+}
+
+model FaltanteProveedor {
+  id                String    @id @default(uuid())
+  recepcionId       String
+  obraId            String
+  proveedor         String
+  numeroFactura     String
+  numeroRemito      String
+  materialId        String
+  cantidadFacturada Float
+  cantidadRecibida  Float
+  diferencia        Float
+  fechaRemito       DateTime
+  resuelto          Boolean   @default(false)
+  fechaResolucion   DateTime?
+
+  recepcion Recepcion @relation(fields: [recepcionId], references: [id])
+}
+
+// ─── FALTANTES OBRA ──────────────────────────────────────
+
+model FaltanteObra {
+  id               String    @id @default(uuid())
+  remitoSalidaId   String
+  obraId           String
+  materialId       String
+  descripcion      String
+  cantidadPedida   Float
+  cantidadFaltante Float
+  unidad           String
+  estado           String    @default("PENDIENTE")
+  observaciones    String?
+  creadoEn         DateTime  @default(now())
+  resolvedoEn      DateTime?
+
+  remitoSalida RemitoSalida @relation(fields: [remitoSalidaId], references: [id])
+  obra         Obra         @relation(fields: [obraId], references: [id])
+  material     Material     @relation(fields: [materialId], references: [id])
+}
