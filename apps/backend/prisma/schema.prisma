@@ -1,168 +1,227 @@
 generator client {
-  provider = "prisma-client-js"
-}
+  provider        = "prisma-client-js"
 
+}
 datasource db {
   provider = "sqlite"
 }
 
 
-// ─── OBRAS ───────────────────────────────────────────────
+// ─── ENUMS ───────────────────────────────────────────────────────────────────
 
-model Obra {
-  id          String   @id @default(uuid())
-  nombre      String
-  activa      Boolean  @default(true)
-  creadoEn    DateTime @default(now())
-  actualizadoEn DateTime @updatedAt
-
-  proveedores ObraProveedor[]
-  pedidos     Pedido[]
-  remitos     RemitoSalida[]
-  recepciones Recepcion[]
-  faltantes   FaltanteObra[]
+enum CategoriaMaterial {
+  CANO_AGUA
+  CANO_CLOACA
+  CANO_GAS
+  CANO_ELECTRICO
+  ACCESORIO_PLOMERIA
+  VALVULA
+  TANQUE
+  HERRAMIENTA
+  OTRO
 }
 
-model ObraProveedor {
-  id                   String   @id @default(uuid())
-  obraId               String
-  proveedor            String
-  spreadsheetIdStock   String
-  spreadsheetIdControl String
-  activo               Boolean  @default(true)
-  creadoEn             DateTime @default(now())
-  actualizadoEn        DateTime @updatedAt
-
-  obra Obra @relation(fields: [obraId], references: [id])
-
-  @@unique([obraId, proveedor])
+enum UnidadMedida {
+  UNIDAD
+  METRO
 }
 
-// ─── MATERIALES ──────────────────────────────────────────
+enum CreadoPorAlias {
+  SISTEMA
+  DEPOSITO
+}
+
+enum EstadoPedido {
+  PENDIENTE_REVISION
+  CONFIRMADO
+  REMITO_GENERADO
+}
+
+enum EstadoResolucion {
+  RESUELTO_AUTOMATICO
+  PENDIENTE_CONFIRMACION
+  SIN_MATCH
+}
+
+enum TipoArchivo {
+  PDF
+  IMAGEN
+}
+
+enum EstadoStock {
+  PENDIENTE
+  APLICADO
+  STOCK_PENDIENTE
+}
+
+enum EstadoFaltanteObra {
+  PENDIENTE
+  EN_COMPRA
+  RESUELTO
+}
+
+enum EstadoRecepcion {
+  COMPLETA
+  CON_DIFERENCIAS
+}
+
+enum TipoSync {
+  PRODUCTOS
+  STOCK
+}
+
+enum EstadoSync {
+  EN_PROCESO
+  COMPLETADO
+  ERROR
+}
+
+// ─── MATERIALES ──────────────────────────────────────────────────────────────
 
 model Material {
-  id               String   @id @default(uuid())
+  id               String            @id @default(uuid())
   codigoProveedor  String?
   nombreOficial    String
-  categoria        String
-  unidadStock      String
-  unidadPedido     String
+  categoria        CategoriaMaterial
+  unidadStock      UnidadMedida
+  unidadPedido     UnidadMedida
   longitudEstandar Float?
-  activo           Boolean  @default(true)
-  creadoEn         DateTime @default(now())
-  actualizadoEn    DateTime @updatedAt
+  activo           Boolean           @default(true)
+  creadoEn         DateTime          @default(now())
+  actualizadoEn    DateTime          @updatedAt
 
-  alias           Alias[]
-  itemsPedido     ItemPedido[]
-  itemsRemito     ItemRemito[]
-  itemsRecepcion  ItemRecepcion[]
-  faltantesObra   FaltanteObra[]
+  alias              Alias[]
+  itemsPedido        ItemPedido[]
+  itemsRemito        ItemRemito[]
+  itemsRemitoEntrada ItemRemitoEntrada[]
+  itemsRecepcion     ItemRecepcion[]
+  faltantesObra      FaltanteObra[]
+  faltantesProveedor FaltanteProveedor[]
+  stockItems         StockItem[]
 }
 
 model Alias {
-  id         String   @id @default(uuid())
-  texto      String   @unique
+  id         String         @id @default(uuid())
+  texto      String         @unique
   materialId String
-  creadoPor  String
-  creadoEn   DateTime @default(now())
+  creadoPor  CreadoPorAlias @default(SISTEMA)
+  creadoEn   DateTime       @default(now())
 
   material Material @relation(fields: [materialId], references: [id])
 }
 
-// ─── PEDIDOS ─────────────────────────────────────────────
+// ─── OBRAS ───────────────────────────────────────────────────────────────────
+
+model Obra {
+  id    String  @id @default(uuid())
+  nombre String
+  activa Boolean @default(true)
+
+  proveedores    ObraProveedor[]
+  pedidos        Pedido[]
+  remitosEntrada RemitoEntrada[]
+  recepciones    Recepcion[]
+  faltantesObra  FaltanteObra[]
+  stockItems     StockItem[]
+}
+
+model ObraProveedor {
+  id                   String  @id @default(uuid())
+  obraId               String
+  proveedor            String
+  spreadsheetIdStock   String
+  spreadsheetIdControl String
+  activo               Boolean @default(true)
+
+  obra Obra @relation(fields: [obraId], references: [id])
+}
+
+// ─── PEDIDOS ─────────────────────────────────────────────────────────────────
 
 model Pedido {
-  id              String   @id @default(uuid())
+  id              String       @id @default(uuid())
   obraId          String
   solicitante     String
   fechaPedido     DateTime
-  fechaCarga      DateTime @default(now())
+  fechaCarga      DateTime     @default(now())
   archivoOriginal String
-  estado          String   @default("PENDIENTE_REVISION")
-  creadoEn        DateTime @default(now())
-  actualizadoEn   DateTime @updatedAt
+  tipoArchivo     TipoArchivo
+  estado          EstadoPedido @default(PENDIENTE_REVISION)
 
-  obra   Obra         @relation(fields: [obraId], references: [id])
-  items  ItemPedido[]
-  remito RemitoSalida?
+  obra         Obra         @relation(fields: [obraId], references: [id])
+  items        ItemPedido[]
+  remitoSalida RemitoSalida?
 }
 
 model ItemPedido {
-  id                  String    @id @default(uuid())
-  pedidoId            String
-  numeroItem          Int
-  textoOriginal       String
-  cantidadOriginal    String
-  cantidadNormalizada Float
-  unidadPedido        String
-  materialId          String?
-  estadoResolucion    String    @default("SIN_MATCH")
-  scoreResolucion     Float?
-  observaciones       String?
-  confirmadoPor       String?
-  confirmadoEn        DateTime?
+  id                   String           @id @default(uuid())
+  pedidoId             String
+  numeroItem           Int
+  textoOriginal        String
+  cantidadOriginal     String
+  cantidadNormalizada  Float
+  unidadPedido         String
+  materialId           String?
+  estadoResolucion     EstadoResolucion
+  scoreResolucion      Float?
+  confirmadoPor        String?
 
   pedido   Pedido    @relation(fields: [pedidoId], references: [id])
   material Material? @relation(fields: [materialId], references: [id])
-  itemRemito ItemRemito?
 }
 
-// ─── REMITOS SALIDA ──────────────────────────────────────
+// ─── REMITOS SALIDA ──────────────────────────────────────────────────────────
 
 model RemitoSalida {
-  id                  String    @id @default(uuid())
-  pedidoId            String    @unique
+  id                  String      @id @default(uuid())
+  pedidoId            String      @unique
   obraId              String
-  numeroRemito        Int       @unique
+  numeroRemito        Int         @unique
   solicitante         String
   encargadoDeposito   String
   encargadoTraslado   String
   fechaPedidoObra     DateTime
   fechaRetiroDeposito DateTime
   archivoExcel        String
-  estadoStock         String    @default("PENDIENTE")
-  intentosDescuento   Int       @default(0)
+  estadoStock         EstadoStock @default(PENDIENTE)
+  intentosDescuento   Int         @default(0)
   ultimoIntentoEn     DateTime?
-  creadoEn            DateTime  @default(now())
 
-  pedido        Pedido         @relation(fields: [pedidoId], references: [id])
-  obra          Obra           @relation(fields: [obraId], references: [id])
-  items         ItemRemito[]
-  faltantesObra FaltanteObra[]
+  pedido Pedido       @relation(fields: [pedidoId], references: [id])
+  items  ItemRemito[]
 }
 
 model ItemRemito {
-  id               String  @id @default(uuid())
+  id               String   @id @default(uuid())
   remitoId         String
-  itemPedidoId     String  @unique
   materialId       String
   descripcion      String
   cantidadPedida   Float
   unidad           String
   cantidadEnStock  Float
-  cantidadFaltante Float   @default(0)
+  cantidadFaltante Float    @default(0)
   condicionEntrega String?
   observaciones    String?
 
-  remito     RemitoSalida @relation(fields: [remitoId], references: [id])
-  itemPedido ItemPedido   @relation(fields: [itemPedidoId], references: [id])
-  material   Material     @relation(fields: [materialId], references: [id])
+  remito   RemitoSalida @relation(fields: [remitoId], references: [id])
+  material Material     @relation(fields: [materialId], references: [id])
+
+  faltanteObra FaltanteObra?
 }
 
-// ─── REMITOS ENTRADA ─────────────────────────────────────
+// ─── REMITOS ENTRADA ─────────────────────────────────────────────────────────
 
 model RemitoEntrada {
-  id                  String   @id @default(uuid())
-  obraId              String
-  proveedor           String
-  numeroRemito        String
-  fechaRemito         DateTime
-  fechaCarga          DateTime @default(now())
-  asociadoARecepcion  Boolean  @default(false)
+  id                   String   @id @default(uuid())
+  obraId               String
+  proveedor            String
+  numeroRemito         String
+  fechaRemito          DateTime
+  fechaCarga           DateTime @default(now())
+  asociadoARecepcion   Boolean  @default(false)
 
-  items      ItemRemitoEntrada[]
-
-  @@unique([obraId, proveedor, numeroRemito])
+  obra  Obra               @relation(fields: [obraId], references: [id])
+  items ItemRemitoEntrada[]
 }
 
 model ItemRemitoEntrada {
@@ -175,23 +234,24 @@ model ItemRemitoEntrada {
   materialId           String?
 
   remitoEntrada RemitoEntrada @relation(fields: [remitoEntradaId], references: [id])
+  material      Material?     @relation(fields: [materialId], references: [id])
 }
 
-// ─── RECEPCIONES ─────────────────────────────────────────
+// ─── RECEPCIONES ─────────────────────────────────────────────────────────────
 
 model Recepcion {
-  id             String   @id @default(uuid())
+  id             String          @id @default(uuid())
   obraId         String
   proveedor      String
   numeroRemito   String
   numeroFactura  String
   fechaRemito    DateTime
-  fechaRecepcion DateTime @default(now())
-  estado         String   @default("COMPLETA")
+  fechaRecepcion DateTime        @default(now())
+  estado         EstadoRecepcion @default(COMPLETA)
 
-  obra      Obra            @relation(fields: [obraId], references: [id])
-  items     ItemRecepcion[]
-  faltantes FaltanteProveedor[]
+  obra               Obra                @relation(fields: [obraId], references: [id])
+  items              ItemRecepcion[]
+  faltantesProveedor FaltanteProveedor[]
 }
 
 model ItemRecepcion {
@@ -210,7 +270,7 @@ model ItemRecepcion {
 }
 
 model FaltanteProveedor {
-  id                String    @id @default(uuid())
+  id                String   @id @default(uuid())
   recepcionId       String
   obraId            String
   proveedor         String
@@ -221,29 +281,60 @@ model FaltanteProveedor {
   cantidadRecibida  Float
   diferencia        Float
   fechaRemito       DateTime
-  resuelto          Boolean   @default(false)
+  resuelto          Boolean  @default(false)
   fechaResolucion   DateTime?
 
   recepcion Recepcion @relation(fields: [recepcionId], references: [id])
+  material  Material  @relation(fields: [materialId], references: [id])
 }
 
-// ─── FALTANTES OBRA ──────────────────────────────────────
+// ─── FALTANTES OBRA ──────────────────────────────────────────────────────────
 
 model FaltanteObra {
-  id               String    @id @default(uuid())
+  id               String             @id @default(uuid())
   remitoSalidaId   String
+  itemRemitoId     String             @unique
   obraId           String
   materialId       String
   descripcion      String
   cantidadPedida   Float
   cantidadFaltante Float
   unidad           String
-  estado           String    @default("PENDIENTE")
+  estado           EstadoFaltanteObra @default(PENDIENTE)
   observaciones    String?
-  creadoEn         DateTime  @default(now())
-  resolvedoEn      DateTime?
+  creadoEn         DateTime           @default(now())
+  resueltaEn       DateTime?
 
-  remitoSalida RemitoSalida @relation(fields: [remitoSalidaId], references: [id])
-  obra         Obra         @relation(fields: [obraId], references: [id])
-  material     Material     @relation(fields: [materialId], references: [id])
+  obra        Obra         @relation(fields: [obraId], references: [id])
+  material    Material     @relation(fields: [materialId], references: [id])
+  itemRemito  ItemRemito   @relation(fields: [itemRemitoId], references: [id])
+}
+
+// ─── STOCK ───────────────────────────────────────────────────────────────────
+
+model StockItem {
+  id            String   @id @default(uuid())
+  obraId        String
+  proveedor     String
+  materialId    String
+  cantidad      Float    @default(0)
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  obra     Obra     @relation(fields: [obraId], references: [id])
+  material Material @relation(fields: [materialId], references: [id])
+
+  @@unique([obraId, proveedor, materialId])
+}
+
+// ─── FINNEGANS SYNC ──────────────────────────────────────────────────────────
+
+model SyncLog {
+  id                   String     @id @default(uuid())
+  tipo                 TipoSync
+  fechaInicio          DateTime   @default(now())
+  fechaFin             DateTime?
+  estado               EstadoSync @default(EN_PROCESO)
+  productosActualizados Int       @default(0)
+  error                String?
 }
