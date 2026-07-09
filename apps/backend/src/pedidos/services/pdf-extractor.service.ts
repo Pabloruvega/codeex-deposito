@@ -184,7 +184,7 @@ export class PdfExtractorService {
 
       itemMap.set(nro, {
         numeroItem: nro,
-        textoOriginal: joined,
+        textoOriginal: desc,
         cantidadOriginal: qtyStr,
         cantidadNormalizada: parseFloat(qtyMatch[1].replace(',', '.')),
         unidadPedido: qtyMatch[2] ? qtyMatch[2].toLowerCase() : 'u',

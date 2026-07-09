@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
-import { StockModule } from '../stock/stock.module';
 import { FaltantesObraModule } from '../faltantes-obra/faltantes-obra.module';
 import { RemitosSalidaController } from './controllers/remitos-salida.controller';
 import { RemitosSalidaService } from './services/remitos-salida.service';
@@ -10,7 +9,7 @@ import { RemitosSalidaRepository } from './repositories/remitos-salida.repositor
 import { ItemRemitoRepository } from './repositories/item-remito.repository';
 
 @Module({
-  imports: [PrismaModule, StockModule, FaltantesObraModule],
+  imports: [PrismaModule, FaltantesObraModule],
   controllers: [RemitosSalidaController],
   providers: [
     RemitosSalidaService,

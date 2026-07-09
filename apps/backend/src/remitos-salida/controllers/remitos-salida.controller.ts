@@ -47,9 +47,4 @@ export class RemitosSalidaController {
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(buffer);
   }
-
-  @Post(':id/reintentar-stock')
-  reintentarStock(@Param('id') id: string) {
-    return this.service.reintentarStock(id);
-  }
 }

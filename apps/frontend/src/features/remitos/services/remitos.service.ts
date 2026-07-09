@@ -12,7 +12,7 @@ const getRemitos = (params?: {
 const getRemito = (id: string): Promise<RemitoSalidaDetalle> =>
   api.get(`/remitos-salida/${id}`).then((r) => r.data)
 
-const crearRemito = (dto: CrearRemitoDto): Promise<RemitoSalidaDetalle> =>
+const crearRemito = (dto: CrearRemitoDto): Promise<RemitoSalidaDetalle[]> =>
   api.post('/remitos-salida', dto).then((r) => r.data)
 
 const descargarExcel = async (id: string, numeroRemito: number): Promise<void> => {

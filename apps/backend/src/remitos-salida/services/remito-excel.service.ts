@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import * as path from 'path';
+import * as fs from 'fs';
 import ExcelJS from 'exceljs';
 
 export interface RemitoExcelData {
@@ -7,8 +9,8 @@ export interface RemitoExcelData {
   solicitante: string;
   encargadoDeposito: string;
   encargadoTraslado: string;
-  fechaPedidoObra: string;
-  fechaRetiroDeposito: string;
+  fechaPedidoObra: Date;
+  fechaRetiroDeposito: Date;
   items: {
     descripcion: string;
     cantidadPedida: number;
@@ -18,124 +20,46 @@ export interface RemitoExcelData {
   }[];
 }
 
-const TITULO = 'REMITO DE RETIRO DE MATERIALES DE DEPÓSITO CODEEX - HUDSON 886 SUR';
-const SECCIONES = ['DEPOSITO', 'ADMINISTRACION', 'OBRA'] as const;
-const ENCABEZADOS_TABLA = ['Item', 'Cantidad', 'Descripción', 'Faltante', 'Sin Fallas', 'Defectuoso', 'Obs.'];
+export const MAX_ITEMS_POR_REMITO = 20;
+
+const TEMPLATE_PATH = path.join(__dirname, '..', 'assets', 'plantilla-remito.xlsx');
+const PRIMERA_FILA_ITEM = 22;
 
 @Injectable()
 export class RemitoExcelService {
+  private templateBuffer: Buffer | null = null;
+
   async generar(datos: RemitoExcelData): Promise<Buffer> {
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'CODEEX Depósito';
-    const ws = wb.addWorksheet('Remito');
+    await wb.xlsx.load((await this.cargarTemplate()) as any);
+    // exceljs doesn't round-trip calcPr@fullCalcOnLoad on read, so it must be re-set here:
+    // without it, Excel may show stale cached results for ADMINISTRACION/OBRA (mirrored via formula).
+    wb.calcProperties = { fullCalcOnLoad: true };
+    const ws = wb.worksheets[0];
 
-    ws.columns = [
-      { key: 'a', width: 6 },
-      { key: 'b', width: 12 },
-      { key: 'c', width: 35 },
-      { key: 'd', width: 10 },
-      { key: 'e', width: 12 },
-      { key: 'f', width: 12 },
-      { key: 'g', width: 25 },
-    ];
+    ws.getCell('E9').value = datos.obraNombre;
+    ws.getCell('N9').value = `REMITO N° ${datos.numeroRemitoStr}`;
+    ws.getCell('E13').value = datos.solicitante;
+    ws.getCell('F14').value = datos.encargadoDeposito;
+    ws.getCell('F15').value = datos.encargadoTraslado;
+    ws.getCell('F16').value = datos.fechaPedidoObra;
+    ws.getCell('F17').value = datos.fechaRetiroDeposito;
 
-    let fila = 1;
-    for (const seccion of SECCIONES) {
-      fila = this.agregarSeccion(ws, fila, seccion, datos);
-      fila += 2;
-    }
+    datos.items.forEach((item, idx) => {
+      const fila = PRIMERA_FILA_ITEM + idx;
+      ws.getCell(`E${fila}`).value = `${item.cantidadPedida} ${item.unidad}`;
+      ws.getCell(`F${fila}`).value = item.descripcion;
+      ws.getCell(`J${fila}`).value = item.cantidadFaltante > 0 ? item.cantidadFaltante : '';
+      ws.getCell(`O${fila}`).value = item.observaciones ?? '';
+    });
 
     return (await wb.xlsx.writeBuffer()) as unknown as Buffer;
   }
 
-  private agregarSeccion(
-    ws: ExcelJS.Worksheet,
-    inicioFila: number,
-    seccion: string,
-    datos: RemitoExcelData,
-  ): number {
-    let f = inicioFila;
-
-    // Título
-    ws.mergeCells(f, 1, f, 7);
-    const celdaTitulo = ws.getCell(f, 1);
-    celdaTitulo.value = TITULO;
-    celdaTitulo.font = { bold: true, size: 11 };
-    celdaTitulo.alignment = { horizontal: 'center', vertical: 'middle' };
-    celdaTitulo.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F497D' } };
-    celdaTitulo.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
-    ws.getRow(f).height = 22;
-    f++;
-
-    // Nombre de sección
-    ws.mergeCells(f, 1, f, 7);
-    const celdaSeccion = ws.getCell(f, 1);
-    celdaSeccion.value = `SECCIÓN: ${seccion}`;
-    celdaSeccion.font = { bold: true, size: 10 };
-    celdaSeccion.alignment = { horizontal: 'center' };
-    celdaSeccion.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E0F0' } };
-    f++;
-
-    // Campos de encabezado
-    this.setCampo(ws, f, 1, 'OBRA:', datos.obraNombre, 2);
-    this.setCampo(ws, f, 5, 'Nro REMITO:', datos.numeroRemitoStr, 1);
-    f++;
-
-    this.setCampo(ws, f, 1, 'SOLICITANTE:', datos.solicitante, 2);
-    this.setCampo(ws, f, 5, 'ENCARGADO DEP.:', datos.encargadoDeposito, 1);
-    f++;
-
-    this.setCampo(ws, f, 1, 'FECHA PEDIDO OBRA:', datos.fechaPedidoObra, 2);
-    this.setCampo(ws, f, 5, 'ENCARGADO TRASLADO:', datos.encargadoTraslado, 1);
-    f++;
-
-    this.setCampo(ws, f, 1, 'FECHA RETIRO DEP.:', datos.fechaRetiroDeposito, 2);
-    f++;
-
-    f++; // fila en blanco
-
-    // Encabezado de tabla
-    const filaHeader = ws.getRow(f);
-    ENCABEZADOS_TABLA.forEach((h, i) => {
-      const celda = filaHeader.getCell(i + 1);
-      celda.value = h;
-      celda.font = { bold: true };
-      celda.alignment = { horizontal: 'center' };
-      celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFBFBFBF' } };
-      celda.border = { bottom: { style: 'thin' }, top: { style: 'thin' }, right: { style: 'thin' } };
-    });
-    f++;
-
-    // Filas de ítems
-    datos.items.forEach((item, idx) => {
-      const filaItem = ws.getRow(f);
-      filaItem.getCell(1).value = idx + 1;
-      filaItem.getCell(2).value = `${item.cantidadPedida} ${item.unidad}`;
-      filaItem.getCell(3).value = item.descripcion;
-      filaItem.getCell(4).value = item.cantidadFaltante > 0 ? item.cantidadFaltante : '';
-      filaItem.getCell(7).value = item.observaciones ?? '';
-      filaItem.eachCell({ includeEmpty: true }, (celda) => {
-        celda.border = { bottom: { style: 'hair' }, right: { style: 'hair' } };
-      });
-      f++;
-    });
-
-    f++; // fila en blanco
-
-    // Línea de firmas
-    ws.mergeCells(f, 1, f, 3);
-    ws.getCell(f, 1).value = 'Firma Encargado Depósito: _______________________';
-    ws.mergeCells(f, 5, f, 7);
-    ws.getCell(f, 5).value = 'Firma Encargado Traslado: _______________________';
-    f++;
-
-    return f;
-  }
-
-  private setCampo(ws: ExcelJS.Worksheet, fila: number, colLabel: number, label: string, valor: string, colsValor: number) {
-    ws.getCell(fila, colLabel).value = label;
-    ws.getCell(fila, colLabel).font = { bold: true };
-    ws.mergeCells(fila, colLabel + 1, fila, colLabel + colsValor);
-    ws.getCell(fila, colLabel + 1).value = valor;
+  private async cargarTemplate(): Promise<Buffer> {
+    if (!this.templateBuffer) {
+      this.templateBuffer = await fs.promises.readFile(TEMPLATE_PATH);
+    }
+    return this.templateBuffer;
   }
 }

@@ -8,9 +8,10 @@ import { PedidoResolverService } from './services/pedido-resolver.service';
 import { PedidosRepository } from './repositories/pedidos.repository';
 import { MaterialesModule } from '../materiales/materiales.module';
 import { ObrasModule } from '../obras/obras.module';
+import { RemitosSalidaModule } from '../remitos-salida/remitos-salida.module';
 
 @Module({
-  imports: [MaterialesModule, ObrasModule],
+  imports: [MaterialesModule, ObrasModule, RemitosSalidaModule],
   controllers: [PedidosController],
   providers: [
     PedidosService,

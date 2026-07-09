@@ -10,6 +10,7 @@ import { FaltantesObraModule } from './faltantes-obra/faltantes-obra.module';
 import { RemitosSalidaModule } from './remitos-salida/remitos-salida.module';
 import { RemitosEntradaModule } from './remitos-entrada/remitos-entrada.module';
 import { RecepcionesModule } from './recepciones/recepciones.module';
+import { GoogleSheetsModule } from './google-sheets/google-sheets.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { RecepcionesModule } from './recepciones/recepciones.module';
     RemitosSalidaModule,
     RemitosEntradaModule,
     RecepcionesModule,
+    GoogleSheetsModule,
     ConfigModule.forRoot({ isGlobal: true }),
   ],
 })

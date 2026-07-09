@@ -70,6 +70,29 @@ export class PedidosRepository {
     });
   }
 
+  createConfirmado(data: CreatePedidoData) {
+    return this.prisma.pedido.create({
+      data: {
+        obraId: data.obraId,
+        solicitante: data.solicitante,
+        fechaPedido: data.fechaPedido,
+        archivoOriginal: data.archivoOriginal,
+        tipoArchivo: data.tipoArchivo,
+        estado: 'CONFIRMADO' as any,
+        items: {
+          create: data.items,
+        },
+      },
+      include: {
+        obra: true,
+        items: {
+          include: { material: true },
+          orderBy: { numeroItem: 'asc' },
+        },
+      },
+    });
+  }
+
   updateItem(
     itemId: string,
     data: {

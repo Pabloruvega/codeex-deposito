@@ -11,6 +11,7 @@ import { ImageExtractorService } from './image-extractor.service';
 import { OcrService } from './ocr.service';
 import { PedidoResolverService, ItemExtraido } from './pedido-resolver.service';
 import { ObrasService } from '../../obras/services/obras.service';
+import { RemitosSalidaService } from '../../remitos-salida/services/remitos-salida.service';
 import { ActualizarItemDto } from '../dto/actualizar-item.dto';
 import { EstadoResolucion, TipoArchivo } from '@prisma/client';
 
@@ -101,6 +102,7 @@ export class PedidosService {
     private readonly ocrService: OcrService,
     private readonly pedidoResolver: PedidoResolverService,
     private readonly obrasService: ObrasService,
+    private readonly remitosSalidaService: RemitosSalidaService,
   ) {}
 
   findAll(filtros?: { obraId?: string; estado?: string }) {
@@ -191,6 +193,81 @@ export class PedidosService {
       estadoResolucion: EstadoResolucion.RESUELTO_AUTOMATICO,
       confirmadoPor: dto.confirmadoPor,
     });
+  }
+
+  async generarRemitoDirecto(
+    archivo: Express.Multer.File,
+    obraId: string,
+    encargadoDeposito: string,
+    encargadoTraslado: string,
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    const obra = await this.obrasService.findById(obraId);
+    if (!obra.activa) throw new UnprocessableEntityException('OBRA_INACTIVA');
+
+    let solicitante: string;
+    let fechaPedido: Date;
+    let items: ItemExtraido[];
+    let tipoArchivo: TipoArchivo;
+
+    if (archivo.mimetype === 'application/pdf') {
+      tipoArchivo = TipoArchivo.PDF;
+      const resultado: PdfParsedResult = await this.pdfExtractor.extract(archivo.buffer);
+      solicitante = resultado.solicitante;
+      fechaPedido = resultado.fechaPedido;
+      items = resultado.items;
+    } else {
+      tipoArchivo = TipoArchivo.IMAGEN;
+      const imgBuffer = this.imageExtractor.validar(archivo);
+      const ocrResult = await this.ocrService.recognizeText(imgBuffer);
+      const parsed = parsearDocumento(ocrResult.text);
+      solicitante = parsed.solicitante;
+      fechaPedido = parsed.fechaPedido;
+      items = parsed.items;
+    }
+
+    if (items.length === 0) {
+      throw new BadRequestException(
+        tipoArchivo === TipoArchivo.PDF ? 'PDF_SIN_ITEMS' : 'OCR_SIN_RESULTADO',
+      );
+    }
+
+    // Crear pedido directamente en CONFIRMADO, sin resolver contra catálogo
+    const pedido = await this.repo.createConfirmado({
+      obraId,
+      solicitante,
+      fechaPedido,
+      archivoOriginal: archivo.originalname,
+      tipoArchivo,
+      items: items.map((item, idx) => ({
+        numeroItem: item.numeroItem ?? idx + 1,
+        textoOriginal: item.textoOriginal,
+        cantidadOriginal: item.cantidadOriginal,
+        cantidadNormalizada: item.cantidadNormalizada,
+        unidadPedido: item.unidadPedido,
+        materialId: null,
+        estadoResolucion: EstadoResolucion.SIN_MATCH,
+        scoreResolucion: null,
+      })),
+    });
+
+    // Generar remito Excel directamente (items sin materialId — flujo directo)
+    // Si el pedido supera MAX_ITEMS_POR_REMITO, se generan varios remitos; esta
+    // ruta descarga un único archivo, así que devuelve solo el primero (el resto
+    // queda igualmente persistido y descargable vía GET /remitos-salida/:id/descargar).
+    const remitos = await this.remitosSalidaService.create({
+      pedidoId: pedido.id,
+      encargadoDeposito,
+      encargadoTraslado,
+      fechaRetiroDeposito: new Date().toISOString(),
+      items: items.map((item) => ({
+        materialId: null,
+        descripcion: item.textoOriginal,
+        cantidadPedida: item.cantidadNormalizada,
+        cantidadFaltante: 0,
+      })),
+    });
+
+    return this.remitosSalidaService.descargarExcel(remitos[0].id);
   }
 
   async confirmar(id: string, confirmadoPor?: string) {

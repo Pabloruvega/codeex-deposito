@@ -1,9 +1,13 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 
 export class ItemRemitoDto {
   @IsUUID()
-  @IsNotEmpty()
-  materialId: string;
+  @IsOptional()
+  materialId?: string | null;
+
+  @IsString()
+  @IsOptional()
+  descripcion?: string;
 
   @IsNumber()
   @Min(0)

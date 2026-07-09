@@ -15,6 +15,7 @@ node_modules/
 dist/
 .next/
 out/
+*.tsbuildinfo
 
 # Storage
 apps/backend/storage/

@@ -12,7 +12,7 @@ export interface CreateRemitoData {
   fechaRetiroDeposito: Date;
   archivoExcel: string;
   items: {
-    materialId: string;
+    materialId: string | null;
     descripcion: string;
     cantidadPedida: number;
     unidad: string;
@@ -84,20 +84,6 @@ export class RemitosSalidaRepository {
         items: { create: data.items },
       },
       include: INCLUDE_DETALLE,
-    });
-  }
-
-  updateEstadoStock(id: string, estadoStock: 'PENDIENTE' | 'APLICADO' | 'STOCK_PENDIENTE') {
-    return this.prisma.remitoSalida.update({
-      where: { id },
-      data: { estadoStock: estadoStock as any, ultimoIntentoEn: new Date() },
-    });
-  }
-
-  incrementarIntentos(id: string) {
-    return this.prisma.remitoSalida.update({
-      where: { id },
-      data: { intentosDescuento: { increment: 1 }, ultimoIntentoEn: new Date() },
     });
   }
 }

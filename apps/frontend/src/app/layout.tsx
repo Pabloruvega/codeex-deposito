@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'CODEEX Depósito',
+  title: 'Codeex - Gestion Inventario',
   description: 'Sistema de gestión de depósito',
 }
 

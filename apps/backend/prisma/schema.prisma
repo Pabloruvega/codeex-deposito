@@ -148,9 +148,9 @@ model Pedido {
   tipoArchivo     TipoArchivo
   estado          EstadoPedido @default(PENDIENTE_REVISION)
 
-  obra         Obra         @relation(fields: [obraId], references: [id])
-  items        ItemPedido[]
-  remitoSalida RemitoSalida?
+  obra          Obra           @relation(fields: [obraId], references: [id])
+  items         ItemPedido[]
+  remitosSalida RemitoSalida[]
 }
 
 model ItemPedido {
@@ -174,7 +174,7 @@ model ItemPedido {
 
 model RemitoSalida {
   id                  String      @id @default(uuid())
-  pedidoId            String      @unique
+  pedidoId            String
   obraId              String
   numeroRemito        Int         @unique
   solicitante         String
@@ -189,12 +189,14 @@ model RemitoSalida {
 
   pedido Pedido       @relation(fields: [pedidoId], references: [id])
   items  ItemRemito[]
+
+  @@index([pedidoId])
 }
 
 model ItemRemito {
   id               String   @id @default(uuid())
   remitoId         String
-  materialId       String
+  materialId       String?
   descripcion      String
   cantidadPedida   Float
   unidad           String
@@ -204,7 +206,7 @@ model ItemRemito {
   observaciones    String?
 
   remito   RemitoSalida @relation(fields: [remitoId], references: [id])
-  material Material     @relation(fields: [materialId], references: [id])
+  material Material?    @relation(fields: [materialId], references: [id])
 
   faltanteObra FaltanteObra?
 }
