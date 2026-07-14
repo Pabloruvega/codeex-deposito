@@ -16,6 +16,8 @@ dist/
 .next/
 out/
 *.tsbuildinfo
+apps/desktop/build/
+apps/desktop/release/
 
 # Storage
 apps/backend/storage/

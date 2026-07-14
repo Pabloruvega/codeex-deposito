@@ -116,7 +116,7 @@ export class RemitosSalidaService {
   async descargarExcel(id: string): Promise<{ buffer: Buffer; filename: string }> {
     const remito = await this.repository.findById(id);
     if (!remito) throw new NotFoundException('PEDIDO_NOT_FOUND');
-    const fullPath = path.join(process.cwd(), remito.archivoExcel);
+    const fullPath = path.join(this.getStorageBaseDir(), remito.archivoExcel);
     try {
       const buffer = await fs.readFile(fullPath);
       return { buffer, filename: path.basename(fullPath) };
@@ -186,11 +186,21 @@ export class RemitosSalidaService {
     const year = fecha.getFullYear();
     const month = String(fecha.getMonth() + 1).padStart(2, '0');
     const nro = String(numero).padStart(5, '0');
-    const dir = path.join(process.cwd(), 'storage', 'remitos', String(year), month);
+    const dir = path.join(this.getStorageBaseDir(), 'storage', 'remitos', String(year), month);
     await fs.mkdir(dir, { recursive: true });
     const filename = `remito-${nro}.xlsx`;
     await fs.writeFile(path.join(dir, filename), buffer);
     return path.posix.join('storage', 'remitos', String(year), month, filename);
+  }
+
+  /**
+   * Directorio base para resolver rutas relativas de storage (archivoExcel, etc.).
+   * En dev, es process.cwd() (comportamiento histórico, sin cambios).
+   * En la app de escritorio, Electron setea STORAGE_PATH a una carpeta persistente
+   * de usuario (fuera del directorio de instalación, que no es escribible sin admin).
+   */
+  private getStorageBaseDir(): string {
+    return process.env.STORAGE_PATH || process.cwd();
   }
 
   private async crearFaltantesObra(remito: any): Promise<void> {

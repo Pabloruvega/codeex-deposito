@@ -1,8 +1,49 @@
 appId: com.codeex.deposito
 productName: CODEEX Depósito
 directories:
-  output: dist
+  # "release", NO "dist": tsc también compila a apps/desktop/dist (ver
+  # tsconfig.json -> outDir). electron-builder excluye por defecto su propio
+  # directorio de output de los "files" que empaqueta en el asar — si
+  # apuntara a "dist" (el mismo que tsc), se auto-excluiría dist/main.js y
+  # el asar quedaría sin entry point ("was not found in this archive"),
+  # exactamente lo que pasó antes de este cambio.
+  output: release
   buildResources: resources
+
+# El backend y el frontend corren como procesos de Node hijos con sus propios
+# node_modules (ver src/main.ts) — no pueden vivir dentro del asar, porque un
+# asar no es un filesystem real y los binarios nativos (ej. @libsql/win32-x64-msvc)
+# no pueden ejecutarse desde ahí. Por eso van como extraResources en vez de en
+# los "files" normales de la app.
+#
+# OJO: un solo entry "from: build, to: .", NO dos entries separados apuntando
+# directo a build/backend y build/frontend. app-builder-lib excluye SIEMPRE
+# una carpeta llamada "node_modules" cuando es hija DIRECTA del "from" de un
+# extraResource — hardcodeado en out/util/filter.js: `if (relative ===
+# "node_modules") return false`, sin forma de desactivarlo vía "filter" (ese
+# chequeo corre antes de aplicar cualquier patrón). Si "from" apuntara
+# directo a build/backend o build/frontend, node_modules quedaría afuera del
+# paquete final y el backend/frontend empaquetados no arrancarían ("Cannot
+# find module") — pasó exactamente eso la primera vez que se instaló el .exe
+# en una PC real: pnpm --filter desktop dist terminaba en verde pero ninguno
+# de los dos procesos hijos podía arrancar. Con "from: build", la ruta
+# relativa de node_modules es "backend/node_modules" / "frontend/node_modules"
+# (nunca el string exacto "node_modules"), así que la exclusión no aplica.
+# build/backend lo genera scripts/prepare-backend.js y build/frontend
+# scripts/prepare-frontend.js (ver package.json -> "dist").
+extraResources:
+  - from: build
+    to: .
+
+# No hace falta asarUnpack: backend/ y frontend/ viven enteros en
+# extraResources (fuera del asar por diseño, ver comentario arriba), y la
+# única dependencia propia de apps/desktop es dotenv (JS puro). Confirmado
+# además que Prisma 7 + @prisma/adapter-libsql no usa ningún query engine
+# nativo (.node) — el compilador de queries es 100% WASM, embebido como
+# base64 dentro de @prisma/client. El único binario nativo real en toda la
+# dependencia es @libsql/win32-x64-msvc (el driver de SQLite), y ese vive
+# dentro de backend/node_modules vía extraResources, nunca dentro del asar.
+
 win:
   target:
     - target: nsis

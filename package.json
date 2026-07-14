@@ -10,7 +10,8 @@
     "build:frontend": "pnpm --filter frontend build",
     "build:desktop": "pnpm --filter desktop build",
     "db:migrate": "pnpm --filter backend prisma migrate dev",
-    "db:studio": "pnpm --filter backend prisma studio"
+    "db:studio": "pnpm --filter backend prisma studio",
+    "package:desktop": "pnpm --filter backend exec prisma generate --config prisma.config.ts && pnpm build:backend && pnpm build:frontend && pnpm --filter desktop dist"
   },
   "devDependencies": {
     "concurrently": "^8.2.0"

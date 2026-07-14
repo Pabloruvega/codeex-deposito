@@ -2,6 +2,11 @@
   "name": "frontend",
   "version": "0.1.0",
   "private": true,
+  "files": [
+    "next.config.ts",
+    ".next",
+    "public"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",

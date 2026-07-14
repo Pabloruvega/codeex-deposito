@@ -1,21 +1,30 @@
 {
   "name": "desktop",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "CODEEX Depósito — shell de escritorio (Electron) para uso en una sola PC",
+  "main": "dist/main.js",
   "scripts": {
+    
+    "build": "tsc -p tsconfig.json",
+    "prepare:backend": "node scripts/prepare-backend.js",
+    "prepare:frontend": "node scripts/prepare-frontend.js",
+    "dev": "tsc -p tsconfig.json && cross-env NODE_ENV=development electron dist/main.js",
+    "dist": "npm run build && npm run prepare:backend && npm run prepare:frontend && electron-builder --win",
     "test": "echo \"Error: no test specified\" && exit 1"
+    
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module",
   "dependencies": {
-    "electron": "^42.4.1"
+    "dotenv": "^17.4.2"
   },
   "devDependencies": {
+    "@types/node": "^24.0.0",
+    "cross-env": "^7.0.3",
+    "electron": "^42.4.1",
     "electron-builder": "^26.15.3",
     "ts-node": "^10.9.2",
-    "typescript": "^6.0.3"
+    "typescript": "^5.7.3"
   }
 }
